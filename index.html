@@ -96,6 +96,15 @@ details{background:var(--panel);border-color:rgba(127,127,127,.3);font-family:in
 .mh{margin:18px 0 4px;opacity:.7;font-size:13px;text-transform:uppercase;letter-spacing:1px}
 .mbox select{background:#3d3b37;color:#f0efe9;border:0;border-radius:6px;padding:6px}
 .mbox p,.mbox li{line-height:1.45;font-size:14px}
+:root{--gw1:#fff;--gw2:#d2d2d2;--gb1:#6e6e6e;--gb2:#343434}
+#gw stop:first-child{stop-color:var(--gw1)}#gw stop:last-child{stop-color:var(--gw2)}
+#gb stop:first-child{stop-color:var(--gb1)}#gb stop:last-child{stop-color:var(--gb2)}
+#board{grid-template-columns:repeat(var(--w),var(--sz,52px));grid-auto-rows:var(--sz,52px)}
+.clk{margin-left:auto;font:700 15px ui-monospace,Menlo,monospace;background:rgba(127,127,127,.25);padding:3px 7px;border-radius:5px}
+.pl.on .clk{background:#fff;color:#222}
+.pl{min-width:0}
+.boom{position:absolute;font-size:34px;font-style:normal;z-index:7;pointer-events:none;animation:boom .8s forwards}
+@keyframes boom{0%{transform:scale(.3);opacity:1}100%{transform:scale(1.7);opacity:0}}
 </style>
 </head>
 <body>
@@ -104,7 +113,7 @@ details{background:var(--panel);border-color:rgba(127,127,127,.3);font-family:in
 <div id='menu'><div class='mbox'>
 <div id='m-main-v'><h1 class='mt'>Long Chess</h1><p class='ms'>Chess, stretched.</p><button class='big' id='m-play'>Play</button><div class='mh'>Quick modes</div><div id='presets'></div><button class='alt' id='m-custom'>Custom game…</button><button class='alt' id='m-help'>How to play</button><button class='alt' id='m-resume' hidden>Resume game</button></div>
 <div id='m-custom-v' hidden><h2>Custom game</h2><div id='opts'></div><button class='big' id='start'>Start game</button><button class='alt' id='back1'>Back</button></div>
-<div id='m-help-v' hidden><h2>How to play</h2><p>Tap a piece, then tap a dot to move it. Pieces move like normal chess, but the board is 8 wide and as long as you choose, so the armies start far apart.</p><ul><li><b>Moves per turn</b> – move several times in a row.</li><li><b>Slide limit</b> – caps how far rooks, bishops and queens glide.</li><li><b>Pawn first run / speed</b> – how far pawns can walk.</li><li><b>King stride</b> – the king can step further.</li><li><b>Reinforcements</b> – a free pawn joins each army every few rounds.</li><li><b>Fog of war</b> – you only see enemies near your own pieces.</li><li><b>King race</b> – you can also win by walking your king to the far end.</li></ul><p>Castling and en passant are not included.</p><button class='alt' id='back2'>Back</button></div>
+<div id='m-help-v' hidden><h2>How to play</h2><p>Tap a piece, then tap a dot to move it. Pieces move like normal chess, but the board is 8 wide and as long as you choose, so the armies start far apart.</p><ul><li><b>Moves per turn</b> – move several times in a row.</li><li><b>Slide limit</b> – caps how far rooks, bishops and queens glide.</li><li><b>Pawn first run / speed</b> – how far pawns can walk.</li><li><b>King stride</b> – the king can step further.</li><li><b>Reinforcements</b> – a free pawn joins each army every few rounds.</li><li><b>Fog of war</b> – you only see enemies near your own pieces.</li><li><b>King race</b> – you can also win by walking your king to the far end.</li><li><b>Hidden mines</b> – stepping on one destroys your piece (kings are safe).</li><li><b>Wrap-around</b> – pieces can leave one side and appear on the other.</li><li><b>Capture bonus</b> – a capture gives you another move.</li><li><b>Clock</b> – run out of time and you lose.</li></ul><p>Castling and en passant are not included.</p><button class='alt' id='back2'>Back</button></div>
 </div></div>
 <svg width='0' height='0' style='position:absolute'><defs><linearGradient id='gw' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#ffffff'/><stop offset='1' stop-color='#d2d2d2'/></linearGradient><linearGradient id='gb' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#6e6e6e'/><stop offset='1' stop-color='#343434'/></linearGradient></defs></svg>
 <div id="wrap"><div id="board"></div></div>
@@ -134,7 +143,7 @@ function pieceSVG(t,c){
 
 // ---- The settings menu (built from this list) ----
 const MENU = [
-  {k:"len",   t:"Board length",     h:"How many rows long the board is",
+  {grp:"Board & rules",k:"len",   t:"Board length",     h:"How many rows long the board is",
    v:[[12,"12"],[20,"20"],[30,"30"],[40,"40"]], d:20},
   {k:"per",   t:"Moves per turn",   h:"Each side moves this many times in a row",
    v:[[1,"1 (normal)"],[2,"2"],[3,"3"]], d:1},
@@ -148,15 +157,24 @@ const MENU = [
   {k:"king",t:"King stride",h:"How far the king can step in any direction",v:[[1,"1 (normal)"],[2,"2 squares"],[3,"3 squares"]],d:1},
   {k:"reinf",t:"Reinforcements",h:"A free pawn joins each army every few rounds",v:[[0,"Off"],[5,"Every 5 rounds"],[3,"Every 3 rounds"],[2,"Every 2 rounds"]],d:0},
   {k:"race",t:"Win condition",h:"Checkmate, or also march your king to the far end",v:[[0,"Checkmate only"],[1,"Or king reaches far end"]],d:0},
-  {k:"cpu",   t:"Opponent",         h:"Who plays the other side",
+  {grp:"More twists",k:"army",t:"Starting army",h:"Who each side begins with",v:[["std","Standard"],["horde","Extra pawn row"],["cav","Cavalry (all knights)"],["queens","Two queens"]],d:"std"},
+  {k:"combo",t:"Capture bonus",h:"Capturing a piece gives you an extra move",v:[[0,"Off"],[1,"On"]],d:0},
+  {k:"mines",t:"Hidden mines",h:"Secret mines in no-man’s-land destroy any piece except a king",v:[[0,"None"],[6,"A few"],[12,"Many"],[20,"Minefield"]],d:0},
+  {k:"wrap",t:"Side walls",h:"Wrap-around turns the board into a tube: the left and right edges connect",v:[[0,"Solid"],[1,"Wrap-around"]],d:0},
+  {grp:"Opponent & clock",k:"cpu",   t:"Opponent",         h:"Who plays the other side",
    v:[[1,"CPU – Easy"],[2,"CPU – Medium"],[3,"CPU – Hard"],[0,"Another person"]], d:2},
   {k:"side",  t:"You play",         h:"Your colour (white always moves first)",
-   v:[["w","White"],["b","Black"]], d:"w"}
+   v:[["w","White"],["b","Black"]], d:"w"},
+  {k:"clock",t:"Clock",h:"Time each side gets for the whole game",v:[[0,"Off"],[3,"3 min"],[5,"5 min"],[10,"10 min"],[20,"20 min"]],d:0},
+  {grp:"Look & sound",k:"theme",t:"Board colours",h:"",v:[["green","Green"],["walnut","Walnut"],["ice","Ice"],["violet","Violet"],["night","Night"]],d:"green"},
+  {k:"pieces",t:"Piece colours",h:"",v:[["classic","Classic"],["gold","Gold & Navy"],["coral","Coral & Teal"]],d:"classic"},
+  {k:"sz",t:"Square size",h:"",v:[[40,"Small"],[52,"Normal"],[64,"Large"]],d:52},
+  {k:"tone",t:"Sound tone",h:"How sharp the piece sounds are",v:[[900,"Muffled"],[2200,"Medium"],[6000,"Bright"]],d:900}
 ];
 const opts = {};
 MENU.forEach(m => opts[m.k] = m.d);
 document.getElementById("opts").innerHTML = MENU.map(m =>
-  `<div class="opt"><label>${m.t}<select id="o-${m.k}">` +
+  (m.grp?`<div class="mh">${m.grp}</div>`:"") + `<div class="opt"><label>${m.t}<select id="o-${m.k}">` +
   m.v.map(x => `<option value="${x[0]}"${x[0]===m.d?" selected":""}>${x[1]}</option>`).join("") +
   `</select></label><small>${m.h}</small></div>`).join("");
 function readMenu(){
@@ -165,7 +183,7 @@ function readMenu(){
 }
 
 let board, turn, left, sel, legal, over, winner, gid = 0;
-let lastMove=null, caps={w:[],b:[]}, hist=[], introPending=false, animPending=false, scrollFlag=false, endTitle="", endSub="", round=0, spawned=[], started=false;
+let lastMove=null, caps={w:[],b:[]}, hist=[], introPending=false, animPending=false, scrollFlag=false, endTitle="", endSub="", round=0, spawned=[], started=false, mines=new Set(), booms=[], clock={w:0,b:0};
 
 // ---- Sound effects (made with code, so no audio files needed) ----
 let ctx=null, armed=false, muted=false;
@@ -174,14 +192,14 @@ function A(){ if(!armed) return null; if(!ctx){ try{ ctx=new (window.AudioContex
 function tone(f,d,type,v,t0,f2){ const a=A(); if(!a||muted||a.state!=='running') return;
   const t=a.currentTime+(t0||0), o=a.createOscillator(), g=a.createGain();
   o.type=type; o.frequency.setValueAtTime(f,t); if(f2) o.frequency.exponentialRampToValueAtTime(f2,t+d);
-  g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(0.001,t+d);
-  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+d); }
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(v,t+.004); g.gain.exponentialRampToValueAtTime(0.001,t+d);
+  o.connect(g); g.connect(out()); o.start(t); o.stop(t+d); }
 function noise(d,v,t0,fq){ const a=A(); if(!a||muted||a.state!=='running') return;
   const n=Math.floor(a.sampleRate*d), buf=a.createBuffer(1,n,a.sampleRate), x=buf.getChannelData(0);
   for(let i=0;i<n;i++) x[i]=(Math.random()*2-1)*(1-i/n);
   const s=a.createBufferSource(), f=a.createBiquadFilter(), g=a.createGain();
   f.type='bandpass'; f.frequency.value=fq; s.buffer=buf; g.gain.value=v;
-  s.connect(f); f.connect(g); g.connect(a.destination); s.start(a.currentTime+(t0||0)); }
+  s.connect(f); f.connect(g); g.connect(out()); s.start(a.currentTime+(t0||0)); }
 const SFX={
   select(){ tone(700,.04,'sine',.07); },
   move(){ tone(260,.1,'triangle',.4,0,120); noise(.035,.18,0,3000); },
@@ -196,7 +214,7 @@ const other = c => c==="w" ? "b" : "w";
 const cpuColor = () => opts.cpu ? other(opts.side) : null;
 
 function newGame(){
-  readMenu(); W = opts.len;
+  readMenu(); applyLook(); W = opts.len;
   board = Array.from({length:H}, () => Array(W).fill(null));
   for(let r=0;r<H;r++){
     board[r][0]   = {t:BACK[r], c:"w"};
@@ -204,6 +222,12 @@ function newGame(){
     board[r][W-1] = {t:BACK[r], c:"b"};
     board[r][W-2] = {t:"P",     c:"b"};
   }
+  if(opts.army==="horde") for(let r=0;r<H;r++){ board[r][2]={t:"P",c:"w"}; board[r][W-3]={t:"P",c:"b"}; }
+  if(opts.army==="cav") for(const r of [0,2,5,7]){ board[r][0].t="N"; board[r][W-1].t="N"; }
+  if(opts.army==="queens") for(const r of [2,5]){ board[r][0].t="Q"; board[r][W-1].t="Q"; }
+  mines=new Set(); booms=[];
+  for(let i=0;i<opts.mines;i++) mines.add(Math.floor(Math.random()*H)+","+(3+Math.floor(Math.random()*(W-6))));
+  clock={w:opts.clock*60000,b:opts.clock*60000};
   turn="w"; left=opts.per; sel=null; legal=[]; over=false; winner=null; gid++;
   lastMove=null; caps={w:[],b:[]}; hist=[]; introPending=true; animPending=false; round=0; spawned=[]; SFX.setup();
   closeMenu(); started=true;
@@ -215,7 +239,7 @@ const inside = (r,c) => r>=0 && r<H && c>=0 && c<W;
 // Every move a piece could make, ignoring whether it leaves its own king in danger
 function pseudo(b,r,c){
   const p=b[r][c], out=[]; if(!p) return out;
-  const add=(rr,cc)=>{ if(!inside(rr,cc)) return false;
+  const add=(rr,cc)=>{ if(opts.wrap) rr=(rr+H)%H; if(!inside(rr,cc)) return false;
     const q=b[rr][cc]; if(!q){out.push([rr,cc]);return true;}
     if(q.c!==p.c) out.push([rr,cc]); return false; };
   const slide=(dirs,L)=>{ const lim = L || opts.range || 99;
@@ -229,7 +253,7 @@ function pseudo(b,r,c){
     const d = p.c==="w" ? 1 : -1, start = p.c==="w" ? 1 : W-2;
     const maxStep = Math.max(opts.pspeed, c===start ? opts.sprint : 1);
     for(let k=1;k<=maxStep;k++){ const cc=c+k*d; if(!inside(r,cc)||b[r][cc]) break; out.push([r,cc]); }
-    for(const dr of [-1,1]){ const q = inside(r+dr,c+d) && b[r+dr][c+d]; if(q && q.c!==p.c) out.push([r+dr,c+d]); }
+    for(const dr of [-1,1]){ const rn=opts.wrap?(r+dr+H)%H:r+dr; const q = inside(rn,c+d) && b[rn][c+d]; if(q && q.c!==p.c) out.push([rn,c+d]); }
   }
   return out;
 }
@@ -266,9 +290,11 @@ function doMove(r,c,rr,cc){
   const target=board[rr][cc], mover=turn, piece=board[r][c];
   board=applyMove(board,r,c,rr,cc);
   lastMove=[r,c,rr,cc]; animPending=true;
-  if(target) caps[mover].push(target.t);
+  if(target){ caps[mover].push(target.t); if(opts.combo) left++; }
   const promoted = piece.t==="P" && board[rr][cc].t==="Q";
   let note=(piece.t==="P"?"":piece.t)+"abcdefgh"[r]+(c+1)+(target?"x":"–")+"abcdefgh"[rr]+(cc+1)+(promoted?"=Q":"");
+  let boomNow=false; const mk=rr+","+cc;
+  if(mines.has(mk)){ mines.delete(mk); if(piece.t!=="K"){ board[rr][cc]=null; booms.push([rr,cc]); note+="💥"; boomNow=true; } }
   if(target && target.t==="K"){          // can happen with 2+ moves per turn
     over=true; winner=mover; endTitle=(mover==="w"?"White":"Black")+" wins"; endSub="by capturing the king";
   } else if(piece.t==="K" && opts.race && ((mover==="w"&&cc===W-1)||(mover==="b"&&cc===0))){
@@ -287,6 +313,7 @@ function doMove(r,c,rr,cc){
   }
   hist.push(note);
   SFX[target ? "capture" : promoted ? "promote" : "move"]();
+  if(boomNow) setTimeout(SFX.boom,90);
   let extra=null;
   if(over) extra = !winner ? "draw" : (opts.cpu && winner!==opts.side) ? "lose" : "win";
   else if(note.endsWith("+")) extra="check";
@@ -376,7 +403,7 @@ function drawBase(){
   } else {
     const cpuNow = turn===cpuColor();
     s = cpuNow ? "CPU ("+name(turn)+") is thinking…" : (cpuColor() ? "Your turn" : name(turn)+"’s turn");
-    if(opts.per>1) s += " – move "+(opts.per-left+1)+" of "+opts.per;
+    if(left>opts.per) s += " – bonus move!"; else if(opts.per>1) s += " – move "+(opts.per-left+1)+" of "+opts.per;
     if(checked) s += " (check!)";
   }
   document.getElementById("status").textContent=s;
@@ -396,21 +423,22 @@ function draw(){
   } else if(animPending && lastMove){
     const [r,c,rr,cc]=lastMove, t=sq(rr,cc), pc=t.querySelector('span');
     if(pc){
-      const dx=(r-rr)*52, dy=(row(c)-row(cc))*52, dist=Math.hypot(dx,dy)/52;
+      const z=opts.sz||52, dx=(r-rr)*z, dy=(row(c)-row(cc))*z, dist=Math.hypot(dx,dy)/z;
       pc.style.zIndex=5;
       pc.animate([{transform:'translate('+dx+'px,'+dy+'px)'},{transform:'none'}],{duration:Math.min(140+dist*22,520),easing:'cubic-bezier(.25,.8,.3,1)'});
     }
     if(scrollFlag) t.scrollIntoView({block:'center',behavior:'smooth'});
   }
   spawned.forEach(([r,c])=>{ const s=sq(r,c).querySelector('span'); if(s) s.animate([{transform:'scale(.2)',opacity:0},{transform:'scale(1.25)',opacity:1},{transform:'none'}],{duration:500,easing:'ease-out'}); });
-  spawned=[];
+  booms.forEach(([r,c])=>{ const s=sq(r,c); s.insertAdjacentHTML('beforeend','<em class="boom">💥</em>'); s.animate([{boxShadow:'inset 0 0 0 40px #ff9a2e'},{boxShadow:'inset 0 0 0 0 #ff9a2e'}],{duration:700}); });
+  booms=[]; spawned=[];
   introPending=false; animPending=false; scrollFlag=false;
 
   const cc2=cpuColor(), bot=wb?'w':'b', top=other(bot);
   const nm=c=>cc2 ? (c===cc2 ? 'CPU · '+['','Easy','Medium','Hard'][opts.cpu] : 'You') : (c==='w'?'White':'Black');
   const mat=c=>caps[c].reduce((s,t)=>s+(t==='K'?0:VAL[t]),0);
   const card=c=>{ const a=mat(c)-mat(other(c));
-    return '<div class="pl'+(turn===c&&!over?' on':'')+'"><span class="av" style="background:'+(c==='w'?'#777':'#d8d8d8')+'">'+pieceSVG('P',c)+'</span><div><b>'+nm(c)+'</b><div class="cp">'+caps[c].map(t=>'<s class="'+other(c)+'">'+pieceSVG(t,other(c))+'</s>').join('')+(a>0?'<em>+'+a+'</em>':'')+'</div></div></div>'; };
+    return '<div class="pl'+(turn===c&&!over?' on':'')+'"><span class="av" style="background:'+(c==='w'?'#777':'#d8d8d8')+'">'+pieceSVG('P',c)+'</span><div><b>'+nm(c)+'</b><div class="cp">'+caps[c].map(t=>'<s class="'+other(c)+'">'+pieceSVG(t,other(c))+'</s>').join('')+(a>0?'<em>+'+a+'</em>':'')+'</div></div>'+(opts.clock?'<span class="clk" id="clk-'+c+'">'+fmt(clock[c])+'</span>':'')+'</div>'; };
   document.getElementById('players').innerHTML=card(bot)+card(top);
   const mv=document.getElementById('moves');
   mv.innerHTML=hist.map((m,i)=>'<span>'+(i+1)+'. '+m+'</span>').join('');
@@ -429,17 +457,23 @@ document.getElementById('oc').onclick=openSet;
 document.getElementById('oa').onclick=newGame;
 document.getElementById('over').onclick=e=>{ if(e.target.id==='over') e.target.classList.remove('show'); };
 // ---- More realistic wooden "clack" sounds (replace the earlier simple ones) ----
-function hit(v,j,t0){   // one wooden knock: a few quick-fading tones plus a tiny click
-  tone(480*j,.09,'sine',.33*v,t0); tone(1050*j,.05,'sine',.19*v,t0); tone(1750*j,.028,'sine',.1*v,t0);
-  tone(130*j,.07,'sine',.36*v,t0,80); noise(.02,.17*v,t0,2200);
+let master=null;
+function out(){   // every sound passes through a filter that cuts the high, harsh frequencies
+  if(!master){ const lp=ctx.createBiquadFilter(), g=ctx.createGain(); lp.type='lowpass'; lp.frequency.value=opts.tone; lp.Q.value=0.4; g.gain.value=.9; lp.connect(g); g.connect(ctx.destination); master=lp; }
+  return master;
+}
+function hit(v,j,t0){   // one soft, muffled wooden knock
+  tone(330*j,.1,'sine',.4*v,t0); tone(700*j,.06,'sine',.16*v,t0);
+  tone(110*j,.09,'sine',.45*v,t0,70); noise(.03,.06*v,t0,700);
 }
 Object.assign(SFX,{
   select(){ tone(1200,.025,'sine',.05); },
   move(){ hit(1,.94+Math.random()*.12,0); },
-  capture(){ hit(1.3,.85+Math.random()*.1,0); hit(.9,1.08,.055); noise(.07,.15,.02,900); },
+  capture(){ hit(1.3,.85+Math.random()*.1,0); hit(.9,1.08,.055); noise(.06,.06,.02,600); },
   check(){ tone(660,.4,'sine',.07); tone(990,.5,'sine',.05,.04); },
   promote(){ hit(1,1,0); [523,659,784].forEach((f,i)=>tone(f,.3,'sine',.12,.08+i*.07)); },
   spawn(){ tone(300,.14,'sine',.12,0,700); },
+  boom(){ tone(80,.4,'sine',.5,0,35); noise(.3,.18,0,350); },
   setup(){ for(let i=0;i<7;i++) hit(.45,.88+Math.random()*.3,i*.075+Math.random()*.03); },
   win(){ [523,659,784,1047].forEach((f,i)=>tone(f,.5,'sine',.14,i*.12)); },
   lose(){ [392,330,262].forEach((f,i)=>tone(f,.6,'sine',.14,i*.2)); }
@@ -462,15 +496,36 @@ const PRESETS=[
   {n:'Marathon',d:'40 rows, 2 moves a turn, pawns sprint 8',p:{len:40,per:2,sprint:8}},
   {n:'Supply Lines',d:'30 rows, new pawns keep arriving, short slides',p:{len:30,reinf:3,range:6}},
   {n:'King’s Race',d:'Run your king to the far end, in the fog',p:{len:30,race:1,king:2,fog:3}},
-  {n:'Chaos',d:'3 moves a turn, fast pawns, strong kings',p:{len:30,per:3,pspeed:3,king:3,reinf:2}}
+  {n:'Chaos',d:'3 moves a turn, fast pawns, strong kings',p:{len:30,per:3,pspeed:3,king:3,reinf:2}},
+  {n:'Minefield',d:'Hidden mines and bonus moves for captures',p:{len:30,mines:12,combo:1}},
+  {n:'The Tube',d:'Wrap-around board, all-knight cavalry',p:{len:24,wrap:1,army:'cav'}}
 ];
 const $=id=>document.getElementById(id);
 $('presets').innerHTML=PRESETS.map((q,i)=>`<button class='pre' data-i='${i}'><b>${q.n}</b><small>${q.d}</small></button>`).join('');
-function setOpts(p){ MENU.forEach(m=>{ if(m.k==='cpu'||m.k==='side') return; $('o-'+m.k).value=(m.k in p)?p[m.k]:m.d; }); }
+function setOpts(p){ MENU.forEach(m=>{ if(['cpu','side','theme','pieces','sz','tone','clock'].includes(m.k)) return; $('o-'+m.k).value=(m.k in p)?p[m.k]:m.d; }); }
 function showView(v){ ['main','custom','help'].forEach(n=>{ $('m-'+n+'-v').hidden = n!==v; }); }
 function openMenu(v){ $('menu').classList.add('show'); showView(v||'main'); $('m-resume').hidden=!(started&&!over); }
 function closeMenu(){ $('menu').classList.remove('show'); }
 $('presets').onclick=e=>{ const b=e.target.closest('.pre'); if(b){ setOpts(PRESETS[b.dataset.i].p); newGame(); } };
+const THEMES={green:['#ebecd0','#779556'],walnut:['#f0d9b5','#b58863'],ice:['#dee3e6','#8ca2ad'],violet:['#e9e1f2','#8877b3'],night:['#9aa7b4','#46525f']};
+const PCOL={classic:['#ffffff','#d2d2d2','#6e6e6e','#343434'],gold:['#fff3c4','#e3b53c','#5d7fc4','#1f2f5c'],coral:['#ffd9cf','#ee7d68','#4fb5ab','#1d5f5a']};
+function applyLook(){
+  const t=THEMES[$('o-theme').value], p=PCOL[$('o-pieces').value], s=document.documentElement.style;
+  s.setProperty('--light',t[0]); s.setProperty('--dark',t[1]);
+  ['gw1','gw2','gb1','gb2'].forEach((k,i)=>s.setProperty('--'+k,p[i]));
+  s.setProperty('--sz',$('o-sz').value+'px');
+  if(master) master.frequency.value=+$('o-tone').value;
+}
+['theme','pieces','sz','tone'].forEach(k=>{ $('o-'+k).onchange=applyLook; });
+function fmt(ms){ const s=Math.ceil(ms/1000); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+let lastT=Date.now();
+setInterval(()=>{   // the chess clock
+  const now=Date.now(), dt=Math.min(now-lastT,1000); lastT=now;
+  if(!opts.clock||!started||over||$('menu').classList.contains('show')) return;
+  clock[turn]-=dt;
+  if(clock[turn]<=0){ clock[turn]=0; over=true; winner=other(turn); endTitle=(winner==='w'?'White':'Black')+' wins'; endSub='on time'; SFX[(opts.cpu&&winner!==opts.side)?'lose':'win'](); draw(); return; }
+  for(const c of ['w','b']){ const e=$('clk-'+c); if(e) e.textContent=fmt(clock[c]); }
+},250);
 $('m-play').onclick=newGame;
 $('m-custom').onclick=()=>showView('custom');
 $('m-help').onclick=()=>showView('help');
